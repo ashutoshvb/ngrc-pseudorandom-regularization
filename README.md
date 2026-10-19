@@ -1,9 +1,9 @@
-# Transferability of Noise-Robustness in Pseudorandom-Projection NGRC
+# Regularization-Scale Instability in Pseudorandom-Projection NGRC
 
-Code, data, and results supporting the manuscript "Transferability of
-Noise-Robustness in Pseudorandom-Projection NGRC: From Synthetic Chaos to
-Real-World Financial Volatility" (currently in preparation/under review).
-A link to the preprint or published version will be added here once
+Code, data, and results supporting the manuscript "A Regularization-Scale
+Instability in Pseudorandom-Projection Next-Generation Reservoir Computing,
+Diagnosed on Financial Volatility Forecasting" (currently in preparation/under
+review). A link to the preprint or published version will be added here once
 available.
 
 ## Repository layout
@@ -33,22 +33,36 @@ code/           Python source. Every script resolves its inputs/outputs relative
   plot_intervention.py       Regenerates the intervention figure (results/intervention_mechanism.png)
                              from results/intervention_force_alpha.csv and intervention_vary_M.csv
 
+  ablation_common.py        Shared helpers for the two ablations below (feature/Gram-matrix
+                             preparation per fold, validation-tuned alpha, fold generator)
+  ablation_rules.py         Regularization-rule ablation (Sec. 3.6): fixed absolute alpha,
+                             trace-scaled, n-scaled, validation-tuned (original and widened
+                             grid) and a per-fold test-error oracle, on all 162 folds.
+                             Writes results/ablation_rules_folds.csv
+  ablation_noise.py         Noise-injection ablation (Sec. 3.7): Gaussian training noise at
+                             sigma = 0 ... 0.3, three realizations per fold.
+                             Writes results/ablation_noise_runs.csv
+  summarize_rules.py        Summarizes the rules ablation (Table 9 and Holm-corrected tests).
+                             Writes results/ablation_rules_summary.csv, ablation_rules_cells.csv
+  summarize_noise.py        Summarizes the noise ablation (Table 10).
+                             Writes results/ablation_noise_cells.csv
+  final_stats.py            Final statistics for the ablations (paired Wilcoxon, Holm correction)
+
   repro_folds.py            Legacy/standalone: reproduces the *original* overlapping-fold
                              sampling used before the non-overlapping-fold correction
                              (Sec. 2.3). Loads S&P 500 data directly from the `arch`
                              package (no input files needed), writes
                              results/{realized_vol.npy,folds.pkl}
   rerun_widegrid.py         Legacy/standalone: the widened-ridge-grid sweep behind the
-                             "practical fix test" paragraph in Sec. 2.5. Run
-                             repro_folds.py first; reads its output from results/,
-                             writes results/sp500_ngrc_pseudorandom_widegrid.csv
+                             "practical fix test" paragraph. Run repro_folds.py first;
+                             reads its output from results/, writes
+                             results/sp500_ngrc_pseudorandom_widegrid.csv
   verify.py                 Legacy/standalone: spot-checks two of the catastrophic-failure
-                             NRMSE values quoted in Sec. 3.3/Table 3 (182.69, 71.25) against
-                             a fresh fit. Run repro_folds.py first.
-  diagnose_folds.py         Legacy/standalone: regenerates Tables 3-5 in full (diagnostic
-                             fold statistics, and the alpha-forcing/M-varying
-                             interventions) from source. Run repro_folds.py first; reads
-                             its output from results/, writes
+                             NRMSE values quoted in the diagnosis section against a fresh
+                             fit. Run repro_folds.py first.
+  diagnose_folds.py         Legacy/standalone: regenerates the diagnostic fold statistics and
+                             the alpha-forcing/M-varying interventions from source. Run
+                             repro_folds.py first; reads its output from results/, writes
                              results/{diagnostic_condition_table,intervention_force_alpha,
                              intervention_vary_M}.csv
 
@@ -56,16 +70,20 @@ data/           Raw input series
   {sp500,nasdaq}_realized_vol.npy   20-day trailing realized volatility
   {sp500,nasdaq}_logret.npy         Daily log returns (used by the GARCH baseline)
 
-results/        Output CSVs and figure referenced by name in the manuscripts
+results/        Output CSVs and figures referenced by name in the manuscript
   full_both_datasets.csv                    Combined 8-model, 2-market backtest results
   full_{sp500,nasdaq}_tl{60,120,250,500,1000}.csv   Per-fold results by training length
   sig_{sp500,nasdaq}_NGRC_pseudorandom[_relridge].csv   Holm-adjusted significance tables
-  diagnostic_condition_table.csv            Table 3 (catastrophic vs. stable fold diagnostics)
-  intervention_{force_alpha,vary_M}.csv     Tables 4-5 and the intervention figure (interventions)
+  diagnostic_condition_table.csv            Diagnostic table (catastrophic vs. stable folds)
+  intervention_{force_alpha,vary_M}.csv     Intervention tables and figure data
   sp500_ngrc_variants_FIXED.png             Figure 1
   intervention_mechanism.png                Intervention (alpha/M) figure
   sensitivity_c.csv, sensitivity_c_summary.csv   Per-fold and summary results for the c-sensitivity check
   sensitivity_c.png                         c-sensitivity figure
+  ablation_rules_folds.csv                  Per-fold NRMSE for every regularization rule (162 folds)
+  ablation_rules_summary.csv, ablation_rules_cells.csv   Summaries behind Table 9
+  ablation_noise_runs.csv                   Per-run NRMSE for the noise-injection ablation
+  ablation_noise_cells.csv                  Summary behind Table 10
 ```
 
 ## Reproducing the results
@@ -95,6 +113,14 @@ python code/plot_sensitivity_c.py
 # Regenerate the intervention figure (from the results/intervention_*.csv
 # files already provided; these are not regenerated by run_full_pipeline.py):
 python code/plot_intervention.py
+
+# Ablations (Secs. 3.6-3.7). The two ablation scripts are slow (all 162 folds,
+# many alpha values); the summaries run in seconds from the shipped CSVs:
+python code/ablation_rules.py
+python code/ablation_noise.py
+python code/summarize_rules.py
+python code/summarize_noise.py
+python code/final_stats.py
 ```
 
 These commands can also be run with a full path to the script, from any
@@ -103,13 +129,13 @@ working directory (`python /some/path/code/run_full_pipeline.py sp500 60`).
 Concatenating all ten `full_<dataset>_tl<n>.csv` files reproduces
 `full_both_datasets.csv`. `significance_with_har.py` reads those files and
 reproduces the `sig_*.csv` significance tables and the Holm-adjusted
-p-values reported in the manuscripts.
+p-values reported in the manuscript.
 
-To reproduce the diagnostic/practical-fix-test numbers in Sec. 2.5/3.3
-instead (the original overlapping-fold sampling, not the main pipeline
-above), run in order: `repro_folds.py`, then `rerun_widegrid.py`,
-`verify.py`, and/or `diagnose_folds.py`. `diagnose_folds.py` regenerates
-Tables 3-5 in full from source; its output matches the shipped
+To reproduce the diagnostic/practical-fix-test numbers (the original
+overlapping-fold sampling, not the main pipeline above), run in order:
+`repro_folds.py`, then `rerun_widegrid.py`, `verify.py`, and/or
+`diagnose_folds.py`. `diagnose_folds.py` regenerates the diagnostic and
+intervention tables in full from source; its output matches the shipped
 `results/diagnostic_condition_table.csv`, `intervention_force_alpha.csv`,
 and `intervention_vary_M.csv` exactly.
 
